@@ -17,7 +17,14 @@ Future<Response> onRequest(RequestContext context) async {
       dni:   body['dni']   as String,
     );
 
-    return Response.json(body: student?.toJson() ?? {});
+    if (student == null) {
+      return Response.json(
+        statusCode: HttpStatus.unauthorized,
+        body: {'error': 'Credenciales inválidas'},
+      );
+    }
+
+    return Response.json(body: student.toJson());
   } catch (e) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,
