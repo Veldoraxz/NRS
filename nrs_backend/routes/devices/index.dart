@@ -75,22 +75,14 @@ Future<Response> _handleGet(RequestContext context) async {
 Future<Response> _handlePost(RequestContext context) async {
   try {
     final body = await context.request.json() as Map<String, dynamic>;
-    final name = body['name']?.toString().trim();
-    final serialNumber = body['serial_number']?.toString().trim();
+    final number = body['number']?.toString().trim();
     final type = body['type']?.toString().trim();
-    final status = body['status']?.toString().trim() ?? 'active';
+    final status = body['status']?.toString().trim() ?? 'available';
 
-    if (name == null || name.isEmpty) {
+    if (number == null || number.isEmpty) {
       return Response.json(
         statusCode: HttpStatus.badRequest,
-        body: {'error': 'name es requerido'},
-      );
-    }
-
-    if (serialNumber == null || serialNumber.isEmpty) {
-      return Response.json(
-        statusCode: HttpStatus.badRequest,
-        body: {'error': 'serial_number es requerido'},
+        body: {'error': 'number es requerido'},
       );
     }
 
@@ -111,18 +103,17 @@ Future<Response> _handlePost(RequestContext context) async {
     }
 
     final deviceRepository = DeviceRepository();
-    final exists = await deviceRepository.existsBySerialNumber(serialNumber);
+    final exists = await deviceRepository.existsByNumber(number);
 
     if (exists) {
       return Response.json(
         statusCode: HttpStatus.conflict,
-        body: {'error': 'Un dispositivo con este serial_number ya existe'},
+        body: {'error': 'Un dispositivo con este number ya existe'},
       );
     }
 
     final device = await deviceRepository.create(
-      name: name,
-      serialNumber: serialNumber,
+      number: number,
       type: type,
       status: status,
     );

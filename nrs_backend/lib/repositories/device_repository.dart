@@ -10,7 +10,7 @@ class DeviceRepository {
     final result = await conn.execute(
       r'''
         SELECT
-          id, name, serial_number, type, status, created_at, updated_at
+          id, number, type, status, status_notes, created_at
         FROM devices WHERE id = $1
       ''',
       parameters: [id],
@@ -19,11 +19,11 @@ class DeviceRepository {
     return Device.fromRow(result.first);
   }
 
-  Future<bool> existsBySerialNumber(String serialNumber) async {
+  Future<bool> existsByNumber(String number) async {
     final conn = await getConnection();
     final result = await conn.execute(
-      r'SELECT id FROM devices WHERE serial_number = $1',
-      parameters: [serialNumber],
+      r'SELECT id FROM devices WHERE number = $1',
+      parameters: [number],
     );
     return result.isNotEmpty;
   }
@@ -37,7 +37,7 @@ class DeviceRepository {
     final conn = await getConnection();
 
     var query = '''
-      SELECT id, name, serial_number, type, status, created_at, updated_at
+      SELECT id, number, type, status, status_notes, created_at
       FROM devices
       WHERE 1=1
     ''';
@@ -56,7 +56,8 @@ class DeviceRepository {
     }
 
     query +=
-        ' ORDER BY created_at DESC LIMIT \$${paramIndex++} OFFSET \$${paramIndex++}';
+        ' ORDER BY created_at DESC LIMIT \$${paramIndex++} '
+        'OFFSET \$${paramIndex++}';
     params.addAll([limit, offset]);
 
     final result = await conn.execute(query, parameters: params);
@@ -81,14 +82,14 @@ class DeviceRepository {
     }
 
     final result = await conn.execute(query, parameters: params);
-    return result.first[0] as int;
+    return (result.first[0] as int?) ?? 0;
   }
 
   Future<Device> create({
-    required String name,
-    required String serialNumber,
+    required String number,
     required String type,
     required String status,
+    String? statusNotes,
   }) async {
     final conn = await getConnection();
     final id = Ulid().toString();
@@ -97,10 +98,10 @@ class DeviceRepository {
     await conn.execute(
       r'''
         INSERT INTO devices
-          (id, name, serial_number, type, status, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+          (id, number, type, status, status_notes, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
       ''',
-      parameters: [id, name, serialNumber, type, status, now, now],
+      parameters: [id, number, type, status, statusNotes, now],
     );
 
     return (await findById(id))!;
@@ -108,16 +109,15 @@ class DeviceRepository {
 
   Future<Device?> updateStatus(String id, String newStatus) async {
     final conn = await getConnection();
-    final now = DateTime.now().toUtc();
 
     final result = await conn.execute(
       r'''
         UPDATE devices
-        SET status = $1, updated_at = $2
-        WHERE id = $3
-        RETURNING id, name, serial_number, type, status, created_at, updated_at
+        SET status = $1
+        WHERE id = $2
+        RETURNING id, number, type, status, status_notes, created_at
       ''',
-      parameters: [newStatus, now, id],
+      parameters: [newStatus, id],
     );
 
     if (result.isEmpty) return null;

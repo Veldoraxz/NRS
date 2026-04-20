@@ -3,41 +3,37 @@
 class Device {
   Device({
     required this.id,
-    required this.name,
-    required this.serialNumber,
+    required this.number,
     required this.type,
     required this.status,
     required this.createdAt,
-    required this.updatedAt,
+    this.statusNotes,
   });
 
   factory Device.fromRow(List<dynamic> row) {
     return Device(
       id: row[0] as String,
-      name: row[1] as String,
-      serialNumber: row[2] as String,
-      type: row[3] as String,
-      status: row[4] as String,
+      number: row[1] as String,
+      type: row[2] as String,
+      status: row[3] as String,
+      statusNotes: row[4] as String?,
       createdAt: row[5] as DateTime,
-      updatedAt: row[6] as DateTime,
     );
   }
 
   final String id;
-  final String name;
-  final String serialNumber;
+  final String number;
   final String type;
   final String status;
+  final String? statusNotes;
   final DateTime createdAt;
-  final DateTime updatedAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'name': name,
-    'serial_number': serialNumber,
+    'number': number,
     'type': type,
     'status': status,
+    'status_notes': statusNotes,
     'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
   };
 }

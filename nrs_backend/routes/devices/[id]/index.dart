@@ -71,7 +71,6 @@ Future<Response> _handleDelete(String id) async {
     await deviceRepository.delete(id);
 
     return Response.json(
-      statusCode: HttpStatus.ok,
       body: {'message': 'Dispositivo eliminado exitosamente'},
     );
   } catch (e) {
