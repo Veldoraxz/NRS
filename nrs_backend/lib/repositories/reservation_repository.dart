@@ -135,4 +135,20 @@ Future<Reservation?> cancel(String id) async {
   return findById(id);
 }
 
+Future<bool> hasActiveCheckout(String reservationId) async {
+  final conn = await getConnection();
+  final result = await conn.execute(
+    r'SELECT id FROM checkouts WHERE reservation_id = $1',
+    parameters: [reservationId],
+  );
+  return result.isNotEmpty;
+}
+
+  Future<void> updateStatus(String id, String status) async {
+    final conn = await getConnection();
+    await conn.execute(
+      r'UPDATE reservations SET status = $1 WHERE id = $2',
+      parameters: [status, id],
+    );
+  }
 }

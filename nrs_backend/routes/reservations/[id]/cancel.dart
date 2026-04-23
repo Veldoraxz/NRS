@@ -52,6 +52,14 @@ Future<Response> onRequest(RequestContext context, String id) async {
       }
     }
 
+    // Validar que no tenga checkout activo
+    if (await repo.hasActiveCheckout(id)) {
+      return Response.json(
+        statusCode: HttpStatus.conflict,
+        body: {'error': 'No podés cancelar una reserva que ya fue retirada'},
+      );
+    }
+
     final cancelled = await repo.cancel(id);
 
     return Response.json(body: cancelled!.toJson());

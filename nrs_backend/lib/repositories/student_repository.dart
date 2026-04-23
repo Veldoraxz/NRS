@@ -97,4 +97,17 @@ class StudentRepository {
       'role':  'student',
     };
   }
+
+  Future<Student?> findById(String id) async {
+  final conn = await getConnection();
+  final result = await conn.execute(
+    r'''
+      SELECT id, full_name, email, dni, year, division, is_active, created_at
+      FROM students WHERE id = $1
+    ''',
+    parameters: [id],
+  );
+  if (result.isEmpty) return null;
+  return Student.fromRow(result.first);
+}
 }

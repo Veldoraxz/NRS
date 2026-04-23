@@ -134,4 +134,6 @@ class DeviceRepository {
     );
     return result.affectedRows > 0;
   }
+
+  
 }
