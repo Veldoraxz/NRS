@@ -77,7 +77,7 @@ class StudentRepository {
 
   Future<Map<String, dynamic>?> loginForAuth({
     required String email,
-    required String dni,
+  required String dni,
   }) async {
     final conn = await getConnection();
     final result = await conn.execute(
