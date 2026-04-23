@@ -61,6 +61,7 @@ Future<Response> onRequest(RequestContext context) async {
 
     final token = JwtService.generate(
       userId: user['id'] as String,
+      email:  user['email'] as String,
       role:   user['role'] as String,
     );
 

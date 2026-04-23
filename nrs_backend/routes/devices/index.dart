@@ -103,12 +103,13 @@ Future<Response> _handlePost(RequestContext context) async {
     }
 
     final deviceRepository = DeviceRepository();
-    final exists = await deviceRepository.existsByNumber(number);
+    final exists = await deviceRepository.existsByNumber(number, type);
 
     if (exists) {
       return Response.json(
         statusCode: HttpStatus.conflict,
-        body: {'error': 'Un dispositivo con este number ya existe'},
+        // ignore: lines_longer_than_80_chars
+        body: {'error': 'Ya existe un dispositivo de tipo "$type" con el número $number'},
       );
     }
 

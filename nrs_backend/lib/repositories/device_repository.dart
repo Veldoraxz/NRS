@@ -21,11 +21,11 @@ class DeviceRepository {
     return Device.fromRow(result.first);
   }
 
-  Future<bool> existsByNumber(String number) async {
+  Future<bool> existsByNumber(String number, String type) async {
     final conn = await getConnection();
     final result = await conn.execute(
-      r'SELECT id FROM devices WHERE number = $1',
-      parameters: [number],
+      r'SELECT id FROM devices WHERE number = $1 AND type = $2',
+      parameters: [number, type],
     );
     return result.isNotEmpty;
   }
