@@ -274,4 +274,26 @@ Future<bool> studentHasAnyReservation(String studentId) async {
   );
   return result.isNotEmpty;
 }
+
+  /// Expira las reservas que ya pasaron su fecha y hora.
+  /// Devuelve el número de reservas expiradas.
+  Future<int> expireOverdue() async {
+    final conn = await getConnection();
+    final now = DateTime.now();
+    final currentDate = now.toIso8601String().split('T')[0]; // YYYY-MM-DD
+    // ignore: lines_longer_than_80_chars
+    final currentTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:00'; // HH:MM:00
+
+    final result = await conn.execute(
+      r'''
+        UPDATE reservations
+        SET status = 'expired'
+        WHERE status IN ('pending', 'confirmed')
+          AND (date < $1 OR (date = $1 AND end_time <= $2))
+      ''',
+      parameters: [currentDate, currentTime],
+    );
+    return result.affectedRows;
+  }
+
 }
