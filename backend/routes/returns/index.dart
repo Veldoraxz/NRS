@@ -8,7 +8,7 @@ import 'package:nrs_backend/repositories/checkout_repository.dart';
 import 'package:nrs_backend/repositories/device_repository.dart';
 import 'package:nrs_backend/repositories/reservation_repository.dart';
 import 'package:nrs_backend/repositories/return_repository.dart';
-import 'package:nrs_backend/repositories/student_repository.dart';
+import 'package:nrs_backend/repositories/student_repository.dart' as student_repo;
 import 'package:nrs_backend/repositories/watchlist_repository.dart';
 import 'package:ulid/ulid.dart';
 
@@ -77,11 +77,11 @@ Future<Response> onRequest(RequestContext context) async {
     String? studentDni;
     String? studentFullName;
     if (reservation.bookerType == 'student' && reservation.studentId != null) {
-      final student = await StudentRepository()
-          .findById(reservation.studentId!);
-      studentDni      = student?.dni;
-      studentFullName = student?.fullName;
-    }
+  final student = await student_repo.StudentRepository()
+      .findById(reservation.studentId!);
+  studentDni      = student?.dni;
+  studentFullName = student?.fullName;
+}
 
     // ignore: flutter_style_todos
     // Todo en una sola transacción

@@ -11,7 +11,7 @@ class StudentRepository {
       r'''
         SELECT
           id, full_name, email, dni,
-          year, division, is_active, created_at
+          year, division, is_active, created_at, specialty
         FROM students WHERE email = $1
       ''',
       parameters: [email],
@@ -35,26 +35,27 @@ class StudentRepository {
   }
 
   Future<Student?> register({
-    required String fullName,
-    required String email,
-    required String dni,
-    required int year,
-    required int division,
-  }) async {
-    final conn = await getConnection();
-    final id = Ulid().toString();
+  required String fullName,
+  required String email,
+  required String dni,
+  required int year,
+  required int division,
+  String? specialty,
+}) async {
+  final conn = await getConnection();
+  final id   = Ulid().toString();
 
-    await conn.execute(
-      r'''
-        INSERT INTO students
-          (id, full_name, email, dni, year, division, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, false)
-      ''',
-      parameters: [id, fullName, email, dni, year, division],
-    );
+  await conn.execute(
+    r'''
+      INSERT INTO students
+        (id, full_name, email, dni, year, division, is_active, specialty)
+      VALUES ($1, $2, $3, $4, $5, $6, false, $7)
+    ''',
+    parameters: [id, fullName, email, dni, year, division, specialty],
+  );
 
-    return findByEmail(email);
-  }
+  return findByEmail(email);
+}
 
   Future<Student?> login({
     required String email,

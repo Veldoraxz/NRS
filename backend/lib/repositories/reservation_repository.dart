@@ -286,6 +286,7 @@ Future<bool> studentHasAnyReservation(String studentId) async {
 
     final result = await conn.execute(
       r'''
+  
         UPDATE reservations
         SET status = 'expired'
         WHERE status IN ('pending', 'confirmed')
@@ -295,5 +296,27 @@ Future<bool> studentHasAnyReservation(String studentId) async {
     );
     return result.affectedRows;
   }
+
+/// Devuelve el total de reservas agrupadas por especialidad.
+/// Ciclo básico (year 1-3) aparece como 'ciclo_basico'.
+Future<List<Map<String, dynamic>>> countBySpecialty() async {
+  final conn = await getConnection();
+  final result = await conn.execute(
+    '''
+      SELECT
+        COALESCE(s.specialty, 'ciclo_basico') AS specialty,
+        COUNT(r.id)::int AS total
+      FROM reservations r
+      JOIN students s ON r.student_id = s.id
+      WHERE r.booker_type = 'student'
+      GROUP BY COALESCE(s.specialty, 'ciclo_basico')
+      ORDER BY total DESC
+    ''',
+  );
+  return result.map((row) => {
+    'specialty': row[0]! as String,
+    'total':     row[1]! as int,
+  }).toList();
+}
 
 }
