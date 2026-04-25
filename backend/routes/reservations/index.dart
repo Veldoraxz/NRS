@@ -332,10 +332,31 @@ Response? _validateDateAndTime(
 
   final today     = DateTime.now();
   final todayOnly = DateTime(today.year, today.month, today.day);
+
+  // No permitir fechas pasadas
   if (reservationDate.isBefore(todayOnly)) {
     return Response.json(
       statusCode: HttpStatus.badRequest,
       body: {'error': 'No podés reservar en una fecha pasada'},
+    );
+  }
+
+  // No permitir más de 14 días hacia adelante
+  final maxDate = todayOnly.add(const Duration(days: 14));
+  if (reservationDate.isAfter(maxDate)) {
+    return Response.json(
+      statusCode: HttpStatus.badRequest,
+      // ignore: lines_longer_than_80_chars
+      body: {'error': 'Solo podés reservar con un máximo de 2 semanas de anticipación'},
+    );
+  }
+
+  // No permitir sábado (6) ni domingo (7)
+  if (reservationDate.weekday == DateTime.saturday ||
+      reservationDate.weekday == DateTime.sunday) {
+    return Response.json(
+      statusCode: HttpStatus.badRequest,
+      body: {'error': 'No se pueden hacer reservas los fines de semana'},
     );
   }
 
@@ -346,6 +367,25 @@ Response? _validateDateAndTime(
     return Response.json(
       statusCode: HttpStatus.badRequest,
       body: {'error': 'Formato de hora inválido, usá HH:MM'},
+    );
+  }
+
+  // Rango permitido: 07:30 a 22:00
+  final minTime = DateTime(0, 1, 1, 7, 30);
+  // ignore: avoid_redundant_argument_values
+  final maxTime = DateTime(0, 1, 1, 22, 0);
+
+  if (start.isBefore(minTime)) {
+    return Response.json(
+      statusCode: HttpStatus.badRequest,
+      body: {'error': 'El horario de inicio no puede ser anterior a las 07:30'},
+    );
+  }
+
+  if (end.isAfter(maxTime)) {
+    return Response.json(
+      statusCode: HttpStatus.badRequest,
+      body: {'error': 'El horario de fin no puede ser posterior a las 22:00'},
     );
   }
 
