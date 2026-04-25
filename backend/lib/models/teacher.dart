@@ -7,6 +7,7 @@ class Teacher {
     required this.email,
     required this.dni,
     required this.createdAt,
+    required this.isActive,
   });
 
   factory Teacher.fromRow(List<dynamic> row) {
@@ -16,14 +17,16 @@ class Teacher {
       email:     row[2] as String,
       dni:       row[3] as String,
       createdAt: row[4] as DateTime,
+      isActive:  row[5] as bool,
     );
   }
 
-  final String id;
-  final String fullName;
-  final String email;
-  final String dni;
+  final String   id;
+  final String   fullName;
+  final String   email;
+  final String   dni;
   final DateTime createdAt;
+  final bool     isActive;
 
   Map<String, dynamic> toJson() => {
     'id':         id,
@@ -31,5 +34,6 @@ class Teacher {
     'email':      email,
     'dni':        dni,
     'created_at': createdAt.toIso8601String(),
+    'is_active':  isActive,
   };
 }

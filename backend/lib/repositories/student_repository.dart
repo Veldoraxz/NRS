@@ -118,4 +118,20 @@ class StudentRepository {
       parameters: [id],
     );
   }
+
+  Future<void> deactivate(String id) async {
+    final conn = await getConnection();
+    await conn.execute(
+      r'UPDATE students SET is_active = false WHERE id = $1',
+      parameters: [id],
+    );
+  }
+
+  Future<void> reactivate(String id) async {
+    final conn = await getConnection();
+    await conn.execute(
+      r'UPDATE students SET is_active = true WHERE id = $1',
+      parameters: [id],
+    );
+  }
 }
