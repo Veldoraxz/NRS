@@ -9,7 +9,6 @@ import 'package:nrs_backend/repositories/device_repository.dart';
 import 'package:nrs_backend/repositories/reservation_repository.dart';
 import 'package:nrs_backend/repositories/return_repository.dart';
 import 'package:nrs_backend/repositories/student_repository.dart' as student_repo;
-import 'package:nrs_backend/repositories/watchlist_repository.dart';
 import 'package:ulid/ulid.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -84,7 +83,9 @@ Future<Response> onRequest(RequestContext context) async {
 }
 
     // ignore: flutter_style_todos
-    // Todo en una sola transacción
+    // Todo en una sola transacción, incluido el cálculo del estado de watchlist
+    String? watchlistStatus;
+
     final conn     = await getConnection();
     final returnId = Ulid().toString();
 
@@ -117,9 +118,9 @@ Future<Response> onRequest(RequestContext context) async {
           parameters: [damageId, studentDni, returnId, description],
         );
 
-        // Incrementar watchlist (insert o update)
+        // Incrementar watchlist (insert o update) CON LOCK
         final existing = await tx.execute(
-          r'SELECT id FROM watchlist WHERE dni = $1',
+          r'SELECT damage_count FROM watchlist WHERE dni = $1 FOR UPDATE',
           parameters: [studentDni],
         );
 
@@ -132,30 +133,28 @@ Future<Response> onRequest(RequestContext context) async {
             ''',
             parameters: [watchlistId, studentDni, studentFullName],
           );
+          watchlistStatus = 'advertencia (1/3 roturas)';
         } else {
+          // Obtener el nuevo damage_count DESPUÉS de update
+          final currentCount = existing.first[0] as int?;
+          final newCount = (currentCount ?? 0) + 1;
+
           await tx.execute(
             r'''
               UPDATE watchlist
-              SET damage_count = damage_count + 1,
+              SET damage_count = $1,
                   updated_at   = NOW()
-              WHERE dni = $1
+              WHERE dni = $2
             ''',
-            parameters: [studentDni],
+            parameters: [newCount, studentDni],
           );
+
+          watchlistStatus = newCount >= 3
+              ? 'bloqueado ($newCount roturas)'
+              : 'advertencia ($newCount/3 roturas)';
         }
       }
     });
-
-    // Leer el estado final del watchlist para incluirlo en la respuesta
-    String? watchlistStatus;
-    if (hasDamage && studentDni != null) {
-      final entry = await WatchlistRepository().findByDni(studentDni);
-      if (entry != null) {
-        watchlistStatus = entry.damageCount >= 3
-            ? 'bloqueado (${entry.damageCount} roturas)'
-            : 'advertencia (${entry.damageCount}/3 roturas)';
-      }
-    }
 
     final returnModel = await returnRepo.findByCheckout(checkoutId);
 

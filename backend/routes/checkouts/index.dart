@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:nrs_backend/auth/auth_user.dart';
 import 'package:nrs_backend/repositories/checkout_repository.dart';
-import 'package:nrs_backend/repositories/device_repository.dart';
 import 'package:nrs_backend/repositories/reservation_repository.dart';
 import 'package:nrs_backend/repositories/student_repository.dart';
 
@@ -37,17 +36,6 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    if (reservation.status != 'pending' &&
-        reservation.status != 'confirmed') {
-      return Response.json(
-        statusCode: HttpStatus.conflict,
-        body: {
-          'error': 'No se puede hacer checkout de una reserva '
-              'con estado: ${reservation.status}',
-        },
-      );
-    }
-
     if (await reservationRepo.hasActiveCheckout(reservationId)) {
       return Response.json(
         statusCode: HttpStatus.conflict,
@@ -55,13 +43,8 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final device = await DeviceRepository().findById(reservation.deviceId);
-    if (device == null || device.status != 'available') {
-      return Response.json(
-        statusCode: HttpStatus.conflict,
-        body: {'error': 'El dispositivo no está disponible para retiro'},
-      );
-    }
+    // Las validaciones de reservation.status y device.status se hacen
+    // dentro de la transacción en approveCheckout()
 
     // ── Reserva de alumno ────────────────────────────────────────────────────
     if (reservation.bookerType == 'student') {
@@ -125,6 +108,23 @@ Future<Response> onRequest(RequestContext context) async {
     );
 
   } catch (e) {
+    final msg = e.toString().toLowerCase();
+
+    if (msg.contains('no está disponible') ||
+        msg.contains('dispositivo no encontrado')) {
+      return Response.json(
+        statusCode: HttpStatus.conflict,
+        body: {'error': e.toString()},
+      );
+    }
+
+    if (msg.contains('no se puede hacer checkout')) {
+      return Response.json(
+        statusCode: HttpStatus.conflict,
+        body: {'error': e.toString()},
+      );
+    }
+
     return Response.json(
       statusCode: HttpStatus.internalServerError,
       body: {'error': 'Error interno: $e'},

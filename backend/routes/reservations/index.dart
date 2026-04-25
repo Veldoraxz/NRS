@@ -59,20 +59,6 @@ Future<Response> _createForStudent(
   if (timeError != null) return timeError;
 
   try {
-    final device = await DeviceRepository().findById(deviceId);
-    if (device == null) {
-      return Response.json(
-        statusCode: HttpStatus.notFound,
-        body: {'error': 'El dispositivo no existe'},
-      );
-    }
-    if (device.status != 'available') {
-      return Response.json(
-        statusCode: HttpStatus.conflict,
-        body: {'error': 'El dispositivo no está disponible'},
-      );
-    }
-
     final student = await StudentRepository().findById(user.userId);
     if (student == null) {
       return Response.json(
@@ -105,19 +91,9 @@ Future<Response> _createForStudent(
       }
     }
 
-    final repo = ReservationRepository();
-
-    if (await repo.studentHasReservationOnDate(
-      studentId: user.userId,
-      date: date,
-    )) {
-      return Response.json(
-        statusCode: HttpStatus.conflict,
-        body: {'error': 'Ya tenés una reserva para ese día'},
-      );
-    }
-
-    final reservation = await repo.createForStudent(
+    // Todas las validaciones de device, conflictos y horarios se hacen
+    // dentro de la transacción en createForStudent()
+    final reservation = await ReservationRepository().createForStudent(
       studentId: user.userId,
       deviceId:  deviceId,
       date:      date,
@@ -130,13 +106,24 @@ Future<Response> _createForStudent(
       body: reservation.toJson(),
     );
   } catch (e) {
-    final msg = e.toString();
-    if (msg.contains('no está disponible en ese horario')) {
+    final msg = e.toString().toLowerCase();
+
+    if (msg.contains('no está disponible') ||
+        msg.contains('conflict') ||
+        msg.contains('dispositivo no encontrado')) {
       return Response.json(
         statusCode: HttpStatus.conflict,
-        body: {'error': 'El dispositivo no está disponible en ese horario'},
+        body: {'error': e.toString()},
       );
     }
+
+    if (msg.contains('ya tiene una reserva')) {
+      return Response.json(
+        statusCode: HttpStatus.conflict,
+        body: {'error': e.toString()},
+      );
+    }
+
     return Response.json(
       statusCode: HttpStatus.internalServerError,
       body: {'error': 'Error interno: $e'},

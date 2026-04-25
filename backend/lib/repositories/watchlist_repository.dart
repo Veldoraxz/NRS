@@ -49,85 +49,67 @@ class WatchlistRepository {
     return result.map(Watchlist.fromRow).toList();
   }
 
-  /// Incrementa damage_count. Si no existe la fila, la crea.
+  /// Incrementa damage_count de forma atómica (sin race condition).
+  /// Si no existe la fila, la crea con damage_count = 1.
+  /// Usa ON CONFLICT para garantizar idempotencia.
   Future<Watchlist> incrementDamage({
     required String dni,
     required String fullName,
   }) async {
-    final conn     = await getConnection();
-    final existing = await findByDni(dni);
+    final conn = await getConnection();
 
-    if (existing == null) {
-      final id = Ulid().toString();
-      await conn.execute(
-        r'''
-          INSERT INTO watchlist (id, dni, full_name, damage_count, active)
-          VALUES ($1, $2, $3, 1, true)
-        ''',
-        parameters: [id, dni, fullName],
-      );
-    } else {
-      await conn.execute(
-        r'''
-          UPDATE watchlist
-          SET damage_count = damage_count + 1,
-              active       = true,
-              updated_at   = NOW()
-          WHERE dni = $1
-        ''',
-        parameters: [dni],
-      );
-    }
-
-    return (await findByDni(dni))!;
-  }
-
-  /// Agrega manualmente un alumno al watchlist sin roturas previas.
-Future<Watchlist> addManually({
-  required String dni,
-  required String adminId,
-}) async {
-  final conn = await getConnection();
-
-  // Buscar nombre en students
-  final studentResult = await conn.execute(
-    r'SELECT full_name FROM students WHERE dni = $1',
-    parameters: [dni],
-  );
-
-  if (studentResult.isEmpty) {
-    throw Exception('No existe un alumno registrado con el DNI $dni');
-  }
-
-  // ignore: cast_nullable_to_non_nullable
-  final fullName = studentResult.first[0] as String;
-  final existing = await findByDni(dni);
-
-  if (existing != null) {
-    // Ya existe — lo reactiva y lleva a 3
+    // ON CONFLICT hace el upsert de forma atómica en la BD
     await conn.execute(
       r'''
-        UPDATE watchlist
-        SET active       = true,
-            damage_count = 3,
-            updated_at   = NOW()
-        WHERE dni = $1
+        INSERT INTO watchlist (id, dni, full_name, damage_count, active, updated_at)
+        VALUES ($1, $2, $3, 1, true, NOW())
+        ON CONFLICT(dni) DO UPDATE SET
+          damage_count = watchlist.damage_count + 1,
+          active       = true,
+          updated_at   = NOW()
       ''',
-      parameters: [dni],
+      parameters: [Ulid().toString(), dni, fullName],
     );
+
     return (await findByDni(dni))!;
   }
 
-  final id = Ulid().toString();
-  await conn.execute(
-    r'''
-      INSERT INTO watchlist (id, dni, full_name, damage_count, active)
-      VALUES ($1, $2, $3, 3, true)
-    ''',
-    parameters: [id, dni, fullName],
-  );
-  return (await findByDni(dni))!;
-}
+  /// Agrega manualmente un alumno al watchlist con damage_count = 3
+  /// (bloqueado). Usa ON CONFLICT para garantizar atomicidad.
+  Future<Watchlist> addManually({
+    required String dni,
+    required String adminId,
+  }) async {
+    final conn = await getConnection();
+
+    // Buscar nombre en students
+    final studentResult = await conn.execute(
+      r'SELECT full_name FROM students WHERE dni = $1',
+      parameters: [dni],
+    );
+
+    if (studentResult.isEmpty) {
+      throw Exception('No existe un alumno registrado con el DNI $dni');
+    }
+
+    // ignore: cast_nullable_to_non_nullable
+    final fullName = studentResult.first[0] as String;
+
+    // Upsert: si no existe lo crea con damage_count=3, si existe lo setea a 3
+    await conn.execute(
+      r'''
+        INSERT INTO watchlist (id, dni, full_name, damage_count, active, updated_at)
+        VALUES ($1, $2, $3, 3, true, NOW())
+        ON CONFLICT(dni) DO UPDATE SET
+          damage_count = 3,
+          active       = true,
+          updated_at   = NOW()
+      ''',
+      parameters: [Ulid().toString(), dni, fullName],
+    );
+
+    return (await findByDni(dni))!;
+  }
 
 
   /// Elimina la entrada — para alumnos que ya no están en el colegio.

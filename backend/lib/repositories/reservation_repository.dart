@@ -53,6 +53,7 @@ class ReservationRepository {
     final id   = Ulid().toString();
 
     await conn.runTx((tx) async {
+      // 1. Lock device para verificar disponibilidad
       final locked = await tx.execute(
         r'SELECT id FROM devices WHERE id = $1 FOR UPDATE',
         parameters: [deviceId],
@@ -62,6 +63,7 @@ class ReservationRepository {
         throw Exception('Dispositivo no encontrado');
       }
 
+      // 2. Verificar conflictos de horario CON LOCK
       final conflict = await tx.execute(
         r'''
           SELECT id FROM reservations
@@ -72,6 +74,7 @@ class ReservationRepository {
               (start_time < $4 AND end_time >= $4) OR
               (start_time >= $3 AND end_time <= $4)
             )
+          FOR UPDATE
         ''',
         parameters: [deviceId, date, startTime, endTime],
       );
@@ -80,6 +83,22 @@ class ReservationRepository {
         throw Exception('El dispositivo no está disponible en ese horario');
       }
 
+      // 3. Verificar que alumno no tenga otra reserva ese día CON LOCK
+      final dailyRes = await tx.execute(
+        r'''
+          SELECT id FROM reservations
+          WHERE student_id = $1 AND date = $2
+            AND status IN ('pending', 'confirmed')
+          FOR UPDATE
+        ''',
+        parameters: [studentId, date],
+      );
+
+      if (dailyRes.isNotEmpty) {
+        throw Exception('El alumno ya tiene una reserva ese día');
+      }
+
+      // 4. Crear reservación (dentro de TX bloqueada)
       await tx.execute(
         r'''
           INSERT INTO reservations

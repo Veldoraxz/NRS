@@ -51,7 +51,8 @@ class CheckoutRepository {
   }
 
   /// Crea el checkout, actualiza el device a in_use y la reserva a completed
-  /// dentro de una sola transacción. Si algo falla, todo se revierte.
+  /// dentro de una sola transacción. Valida que el device esté 'available'.
+  /// Si algo falla, todo se revierte.
   Future<Checkout> approveCheckout({
     required String reservationId,
     required String adminId,
@@ -64,7 +65,38 @@ class CheckoutRepository {
     final id   = Ulid().toString();
 
     await conn.runTx((tx) async {
-      // 1. Crear checkout
+      // 1. Validar que device está disponible CON LOCK PESSIMISTIC
+      final device = await tx.execute(
+        r'SELECT status FROM devices WHERE id = $1 FOR UPDATE',
+        parameters: [deviceId],
+      );
+
+      if (device.isEmpty) {
+        throw Exception('Dispositivo no encontrado');
+      }
+
+      if (device.first[0]! as String != 'available') {
+        throw Exception('El dispositivo no está disponible para retiro');
+      }
+
+      // 2. Validar que reserva está en estado válido CON LOCK
+      final reservation = await tx.execute(
+        r'SELECT status FROM reservations WHERE id = $1 FOR UPDATE',
+        parameters: [reservationId],
+      );
+
+      if (reservation.isEmpty) {
+        throw Exception('Reserva no encontrada');
+      }
+
+      final status = reservation.first[0] as String?;
+      if (status != 'pending' && status != 'confirmed') {
+        throw Exception(
+          'No se puede hacer checkout de una reserva con estado: $status',
+        );
+      }
+
+      // 3. Crear checkout
       await tx.execute(
         r'''
           INSERT INTO checkouts (id, reservation_id, admin_id, device_notes)
@@ -73,19 +105,19 @@ class CheckoutRepository {
         parameters: [id, reservationId, adminId, deviceNotes],
       );
 
-      // 2. Device: available → in_use
+      // 4. Device: available → in_use
       await tx.execute(
         r'UPDATE devices SET status = $1 WHERE id = $2',
         parameters: ['in_use', deviceId],
       );
 
-      // 3. Reserva: pending/confirmed → completed
+      // 5. Reserva: pending/confirmed → completed
       await tx.execute(
         r'UPDATE reservations SET status = $1 WHERE id = $2',
         parameters: ['completed', reservationId],
       );
 
-      // 4. Activar alumno si corresponde (primer retiro)
+      // 6. Activar alumno si corresponde (primer retiro)
       if (activateStudent && studentId != null) {
         await tx.execute(
           r'UPDATE students SET is_active = true WHERE id = $1',
