@@ -26,8 +26,8 @@ class Reservation {
       teacherId:   row[3] as String?,
       deviceId:    row[4] as String,
       date:        row[5] as DateTime,
-      startTime:   (row[6] as Time).toString(),
-      endTime:     (row[7] as Time).toString(),
+      startTime:   _timeToString(row[6] as Time),
+      endTime:     _timeToString(row[7] as Time),
       status:      row[8] as String,
       createdAt:   row[9] as DateTime,
       studentName: row[10] as String?,
@@ -35,18 +35,18 @@ class Reservation {
     );
   }
 
-  final String  id;
-  final String  bookerType;
-  final String? studentId;
-  final String? teacherId;
-  final String  deviceId;
+  final String   id;
+  final String   bookerType;
+  final String?  studentId;
+  final String?  teacherId;
+  final String   deviceId;
   final DateTime date;
-  final String  startTime;
-  final String  endTime;
-  final String  status;
+  final String   startTime;
+  final String   endTime;
+  final String   status;
   final DateTime createdAt;
-  final String? studentName;
-  final String? teacherName;
+  final String?  studentName;
+  final String?  teacherName;
 
   Map<String, dynamic> toJson() => {
     'id':           id,
@@ -62,4 +62,10 @@ class Reservation {
     'status':       status,
     'created_at':   createdAt.toIso8601String(),
   };
+}
+
+String _timeToString(Time t) {
+  final h = t.hour.toString().padLeft(2, '0');
+  final m = t.minute.toString().padLeft(2, '0');
+  return '$h:$m';
 }
