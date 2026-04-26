@@ -1,0 +1,61 @@
+NRS — Notebook Reservation System
+Schema v1.2 — ULID Edition (Full)
+
+Este esquema define una base de datos para el sistema de reservas de notebooks y televisores en una institución educativa. Todos los IDs son ULID en formato TEXT y se generan en la capa de aplicación (Dart), no en la base de datos.
+
+Se crea la extensión pgcrypto en PostgreSQL.
+
+ADMINS
+La tabla admins contiene id (ULID), email único y password_hash. Representa los administradores del sistema.
+
+STUDENTS
+La tabla students contiene id (ULID), full_name, email único, dni único, year (entero entre 1 y 7), division (entero entre 1 y 6), is_active (booleano por defecto false) y created_at.
+
+Los estudiantes inician con is_active en false y se activan en el primer checkout aprobado por un admin.
+
+TEACHERS
+La tabla teachers contiene id (ULID), email único, dni único, full_name, password_hash y created_at.
+
+DEVICES
+La tabla devices contiene id (ULID), number único, type (notebook o television), status (available, in_use, out_of_service), status_notes y created_at.
+
+RESERVATIONS
+La tabla reservations contiene id (ULID), booker_type (student o teacher), student_id o teacher_id según corresponda, device_id, date, start_time, end_time, status (pending, confirmed, cancelled, expired, completed) y created_at.
+
+Incluye una restricción que asegura que:
+
+si booker_type es student, solo student_id puede existir
+si booker_type es teacher, solo teacher_id puede existir
+
+TEACHER TOKENS
+La tabla teacher_tokens contiene id (ULID), reservation_id, token generado automáticamente, used (booleano) y expires_at.
+
+El token permite que cualquier persona retire el dispositivo en nombre del profesor dentro de un tiempo limitado.
+
+CHECKOUTS
+La tabla checkouts contiene id (ULID), reservation_id único, admin_id, device_notes y checked_out_at.
+
+Registra el retiro físico del dispositivo.
+
+RETURNS
+La tabla returns contiene id (ULID), checkout_id único, admin_id, device_notes, has_damage y returned_at.
+
+Registra la devolución del dispositivo y si hubo daño.
+
+WATCHLIST
+La tabla watchlist contiene id (ULID), dni único, full_name, damage_count, active (booleano) y pardoned_by.
+
+Guarda historial de sanciones por daño. No se elimina en el reset anual.
+
+DAMAGES
+La tabla damages contiene id (ULID), dni, return_id, description y created_at.
+
+Registra cada evento de daño individual.
+
+NOTIFICATIONS
+La tabla notifications contiene id (ULID), recipient_email, type (reservation_confirmed, reservation_cancelled, reminder), reservation_id, sent (booleano) y created_at.
+
+Funciona como cola de emails enviada por un proceso en segundo plano.
+
+ÍNDICES
+Se crean índices para optimizar búsquedas por dni, year, division, estado de reservas, fechas, tokens y notificaciones.
