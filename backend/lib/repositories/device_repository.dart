@@ -126,6 +126,27 @@ class DeviceRepository {
     return Device.fromRow(result.first);
   }
 
+  Future<Device?> update({
+    required String id,
+    required String number,
+    String? statusNotes,
+  }) async {
+    final conn = await getConnection();
+
+    final result = await conn.execute(
+      r'''
+        UPDATE devices
+        SET number = $1, status_notes = $2
+        WHERE id = $3
+        RETURNING id, number, type, status, status_notes, created_at
+      ''',
+      parameters: [number, statusNotes, id],
+    );
+
+    if (result.isEmpty) return null;
+    return Device.fromRow(result.first);
+  }
+
   Future<bool> delete(String id) async {
     final conn = await getConnection();
     final result = await conn.execute(

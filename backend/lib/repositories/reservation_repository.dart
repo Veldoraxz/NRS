@@ -2,6 +2,7 @@
 
 import 'package:nrs_backend/database/connection.dart';
 import 'package:nrs_backend/models/reservation.dart';
+import 'package:postgres/postgres.dart';
 import 'package:ulid/ulid.dart';
 
 class ReservationRepository {
@@ -50,7 +51,7 @@ class ReservationRepository {
     required String endTime,
   }) async {
     final conn = await getConnection();
-    final id   = Ulid().toString();
+    final id = Ulid().toString();
 
     await conn.runTx((tx) async {
       // 1. Lock device para verificar disponibilidad
@@ -132,6 +133,60 @@ class ReservationRepository {
     return result.map(Reservation.fromRow).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getAllWithFlowData() async {
+    final conn = await getConnection();
+    final result = await conn.execute(
+      '''
+        SELECT
+          r.id, r.booker_type, r.student_id, r.teacher_id, r.device_id,
+          d.number as device_number,
+          d.type as device_type,
+          r.date, r.start_time, r.end_time, r.status, r.created_at,
+          s.full_name as student_name,
+          t.full_name as teacher_name,
+          c.id as checkout_id,
+          c.checked_out_at,
+          rt.id as return_id,
+          rt.returned_at
+        FROM reservations r
+        LEFT JOIN students s ON r.student_id = s.id
+        LEFT JOIN teachers t ON r.teacher_id = t.id
+        LEFT JOIN devices d ON r.device_id = d.id
+        LEFT JOIN checkouts c ON c.reservation_id = r.id
+        LEFT JOIN returns rt ON rt.checkout_id = c.id
+        ORDER BY r.date DESC, r.start_time DESC
+      ''',
+    );
+
+    return result.map((row) {
+      final date = row[7] as DateTime;
+      final createdAt = row[11] as DateTime;
+      final checkedOutAt = row[15] as DateTime?;
+      final returnedAt = row[17] as DateTime?;
+
+      return <String, dynamic>{
+        'id': row[0] as String,
+        'booker_type': row[1] as String,
+        'student_id': row[2] as String?,
+        'teacher_id': row[3] as String?,
+        'device_id': row[4] as String,
+        'device_number': row[5] as String?,
+        'device_type': row[6] as String?,
+        'date': date.toIso8601String().substring(0, 10),
+        'start_time': _timeToString(row[8] as Time),
+        'end_time': _timeToString(row[9] as Time),
+        'status': row[10] as String,
+        'created_at': createdAt.toIso8601String(),
+        'student_name': row[12] as String?,
+        'teacher_name': row[13] as String?,
+        'checkout_id': row[14] as String?,
+        'checked_out_at': checkedOutAt?.toIso8601String(),
+        'return_id': row[16] as String?,
+        'returned_at': returnedAt?.toIso8601String(),
+      };
+    }).toList();
+  }
+
   Future<Reservation?> findById(String id) async {
     final conn = await getConnection();
     final result = await conn.execute(
@@ -210,7 +265,7 @@ class ReservationRepository {
     required String endTime,
   }) async {
     final conn = await getConnection();
-    final ids  = <String>[];
+    final ids = <String>[];
 
     await conn.runTx((tx) async {
       for (final deviceId in deviceIds) {
@@ -273,7 +328,7 @@ class ReservationRepository {
     required String endTime,
   }) async {
     final conn = await getConnection();
-    final id   = Ulid().toString();
+    final id = Ulid().toString();
 
     await conn.runTx((tx) async {
       final locked = await tx.execute(
@@ -377,8 +432,8 @@ class ReservationRepository {
   }
 
   Future<int> expireOverdue() async {
-    final conn        = await getConnection();
-    final now         = DateTime.now();
+    final conn = await getConnection();
+    final now = DateTime.now();
     final currentDate = now.toIso8601String().split('T')[0];
     final currentTime =
         '${now.hour.toString().padLeft(2, '0')}:'
@@ -398,7 +453,7 @@ class ReservationRepository {
   }
 
   Future<List<Map<String, dynamic>>> countBySpecialty() async {
-    final conn   = await getConnection();
+    final conn = await getConnection();
     final result = await conn.execute(
       '''
         SELECT
@@ -411,9 +466,19 @@ class ReservationRepository {
         ORDER BY total DESC
       ''',
     );
-    return result.map((row) => {
-      'specialty': row[0]! as String,
-      'total':     row[1]! as int,
-    }).toList();
+    return result
+        .map(
+          (row) => {
+            'specialty': row[0]! as String,
+            'total': row[1]! as int,
+          },
+        )
+        .toList();
   }
+}
+
+String _timeToString(Time t) {
+  final h = t.hour.toString().padLeft(2, '0');
+  final m = t.minute.toString().padLeft(2, '0');
+  return '$h:$m';
 }

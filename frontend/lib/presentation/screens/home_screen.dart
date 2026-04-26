@@ -25,11 +25,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final _emailCtrl    = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  UserRole _role      = UserRole.student;
+  UserRole _role = UserRole.student;
   String? _loginError;
-  bool _isLoading     = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -43,18 +43,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _loginError = 'Completá todos los campos.');
       return;
     }
-    setState(() { _isLoading = true; _loginError = null; });
+    setState(() {
+      _isLoading = true;
+      _loginError = null;
+    });
     try {
-      await ref.read(authProvider.notifier).login(
-        _emailCtrl.text.trim(),
-        _passwordCtrl.text,
-        _role,
-      );
+      await ref
+          .read(authProvider.notifier)
+          .login(_emailCtrl.text.trim(), _passwordCtrl.text, _role);
     } catch (e) {
       if (mounted) {
         setState(() {
           _loginError = e.toString().replaceAll('Exception: ', '');
-          _isLoading  = false;
+          _isLoading = false;
         });
       }
       return;
@@ -64,14 +65,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authAsync    = ref.watch(authProvider);
+    final authAsync = ref.watch(authProvider);
     final devicesAsync = ref.watch(notebookListProvider);
 
     return authAsync.when(
-      loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator())),
-      error: (err, _) => Scaffold(
-          body: Center(child: Text('Error: $err'))),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (err, _) => Scaffold(body: Center(child: Text('Error: $err'))),
       data: (user) {
         // ── No logueado → pantalla de login ──────────────────────────────────
         if (user == null) return _buildLogin();
@@ -84,19 +84,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             );
           });
           return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         // ── Alumno / Docente ──────────────────────────────────────────────────
         return Scaffold(
           appBar: AppBar(
-            title: Row(children: [
-              Image.asset('assets/logo.png', height: 36,
+            title: Row(
+              children: [
+                Image.asset(
+                  'assets/logo.png',
+                  height: 36,
                   errorBuilder: (context2, error, stackTrace) =>
-                      const Icon(Icons.school, color: Colors.white)),
-              const SizedBox(width: 8),
-              Text('NRS (${user.role == UserRole.teacher ? "Docente" : "Alumno"})'),
-            ]),
+                      const Icon(Icons.school, color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'NRS (${user.role == UserRole.teacher ? "Docente" : "Alumno"})',
+                ),
+              ],
+            ),
             actions: [
               PopupMenuButton<String>(
                 icon: const Icon(Icons.account_circle, size: 28),
@@ -108,15 +116,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 itemBuilder: (menuCtx) => [
                   PopupMenuItem(
                     enabled: false,
-                    child: Text(user.email,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
+                    child: Text(
+                      user.email,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                   const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'logout',
-                    child: Text('Cerrar Sesión',
-                        style: TextStyle(color: Colors.redAccent)),
+                    child: Text(
+                      'Cerrar Sesión',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
                   ),
                 ],
               ),
@@ -125,20 +136,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           body: devicesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(
-              child: Column(mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                const Icon(Icons.error_outline,
-                    size: 48, color: Colors.redAccent),
-                const SizedBox(height: 16),
-                Text('$err', textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      ref.read(notebookListProvider.notifier).refresh(),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
-                ),
-              ]),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  Text('$err', textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.read(notebookListProvider.notifier).refresh(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                  ),
+                ],
+              ),
             ),
             data: (devices) => _buildGrid(context, devices, user),
           ),
@@ -159,14 +175,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/logo.png', width: 100, height: 100,
-                    errorBuilder: (ctx, err, st) => const Icon(
-                        Icons.school, size: 100,
-                        color: AppTheme.primaryBlue)),
+                Image.asset(
+                  'assets/logo.png',
+                  width: 100,
+                  height: 100,
+                  errorBuilder: (ctx, err, st) => const Icon(
+                    Icons.school,
+                    size: 100,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
                 const SizedBox(height: 20),
-                const Text('NRS — Iniciar Sesión',
-                    style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold)),
+                const Text(
+                  'NRS — Iniciar Sesión',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 28),
 
                 // Email
@@ -182,7 +205,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 TextField(
                   controller: _passwordCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'DNI (contraseña)'),
+                    labelText: 'DNI (contraseña)',
+                  ),
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   onSubmitted: (_) => _handleLogin(),
@@ -191,19 +215,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Selector de rol
                 DropdownButtonFormField<UserRole>(
-                  value: _role,
-                  decoration:
-                      const InputDecoration(labelText: 'Rol'),
+                  initialValue: _role,
+                  decoration: const InputDecoration(labelText: 'Rol'),
                   items: const [
                     DropdownMenuItem(
-                        value: UserRole.student,
-                        child: Text('Alumno')),
+                      value: UserRole.student,
+                      child: Text('Alumno'),
+                    ),
                     DropdownMenuItem(
-                        value: UserRole.teacher,
-                        child: Text('Docente')),
+                      value: UserRole.teacher,
+                      child: Text('Docente'),
+                    ),
                     DropdownMenuItem(
-                        value: UserRole.admin,
-                        child: Text('Administrador')),
+                      value: UserRole.admin,
+                      child: Text('Administrador'),
+                    ),
                   ],
                   onChanged: (v) {
                     if (v != null) setState(() => _role = v);
@@ -212,10 +238,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 if (_loginError != null) ...[
                   const SizedBox(height: 12),
-                  Text(_loginError!,
-                      style:
-                          const TextStyle(color: Colors.redAccent),
-                      textAlign: TextAlign.center),
+                  Text(
+                    _loginError!,
+                    style: const TextStyle(color: Colors.redAccent),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
 
                 const SizedBox(height: 24),
@@ -228,8 +255,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white))
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Ingresar'),
                   ),
                 ),
@@ -244,8 +273,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ─── Grilla de dispositivos ──────────────────────────────────────────────────
 
   Widget _buildGrid(BuildContext context, List<Device> devices, User user) {
-    final filterType      = ref.watch(_filterTypeProvider);
-    final onlyAvailable   = ref.watch(_filterAvailableProvider);
+    final filterType = ref.watch(_filterTypeProvider);
+    final onlyAvailable = ref.watch(_filterAvailableProvider);
 
     final visible = devices.where((d) {
       if (user.role == UserRole.student && d.model == DeviceModel.tv) {
@@ -263,111 +292,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return true;
     }).toList();
 
-    return Column(children: [
-      // Banner cuenta en aire
-      if (user.isPendingActivation)
-        Container(
-          color: AppTheme.warningColor.withValues(alpha: 0.15),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(children: [
-            const Icon(Icons.warning_amber_rounded,
-                color: AppTheme.warningColor),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Cuenta en Aire — se activará tras tu primer retiro físico aprobado por el admin.',
-                style: TextStyle(
-                    color: AppTheme.warningColor, fontSize: 12),
-              ),
+    return Column(
+      children: [
+        // Banner cuenta en aire
+        if (user.isPendingActivation)
+          Container(
+            color: AppTheme.warningColor.withValues(alpha: 0.15),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.warningColor,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Cuenta en Aire — se activará tras tu primer retiro físico aprobado por el admin.',
+                    style: TextStyle(
+                      color: AppTheme.warningColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ]),
+          ),
+
+        // Filtros
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              if (user.role == UserRole.teacher) ...[
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'Todos', label: Text('Todos')),
+                    ButtonSegment(value: 'Computadoras', label: Text('PC')),
+                    ButtonSegment(value: 'Televisores', label: Text('TV')),
+                  ],
+                  selected: {filterType},
+                  onSelectionChanged: (s) =>
+                      ref.read(_filterTypeProvider.notifier).state = s.first,
+                ),
+                const SizedBox(width: 12),
+              ],
+              FilterChip(
+                label: const Text('Solo Disponibles'),
+                selected: onlyAvailable,
+                onSelected: (v) =>
+                    ref.read(_filterAvailableProvider.notifier).state = v,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () =>
+                    ref.read(notebookListProvider.notifier).refresh(),
+                tooltip: 'Actualizar',
+              ),
+            ],
+          ),
         ),
 
-      // Filtros
-      Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 12, vertical: 8),
-        child: Row(children: [
-          if (user.role == UserRole.teacher) ...[
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'Todos', label: Text('Todos')),
-                ButtonSegment(
-                    value: 'Computadoras', label: Text('PC')),
-                ButtonSegment(
-                    value: 'Televisores', label: Text('TV')),
-              ],
-              selected: {filterType},
-              onSelectionChanged: (s) => ref
-                  .read(_filterTypeProvider.notifier)
-                  .state = s.first,
-            ),
-            const SizedBox(width: 12),
-          ],
-          FilterChip(
-            label: const Text('Solo Disponibles'),
-            selected: onlyAvailable,
-            onSelected: (v) => ref
-                .read(_filterAvailableProvider.notifier)
-                .state = v,
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.read(notebookListProvider.notifier).refresh(),
-            tooltip: 'Actualizar',
-          ),
-        ]),
-      ),
-
-      // Grilla
-      Expanded(
-        child: visible.isEmpty
-            ? const Center(
-                child: Text('No hay dispositivos disponibles.'))
-            : GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.95,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: visible.length,
-                itemBuilder: (_, i) {
-                  final device = visible[i];
-                  return DeviceCard(
-                    device: device,
-                    onCancel: device.status == DeviceStatus.inUse
-                        ? () async {
-                            try {
-                              // En este punto solo tenemos el device.id,
-                              // no el reservation_id.
-                              // El cancel real necesita el reservation_id.
-                              // Mostramos mensaje informativo.
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(const SnackBar(
-                                content: Text(
-                                    'Para cancelar, usá la sección "Mis Reservas".'),
-                              ));
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: Colors.redAccent,
-                                ));
+        // Grilla
+        Expanded(
+          child: visible.isEmpty
+              ? const Center(child: Text('No hay dispositivos disponibles.'))
+              : GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.95,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: visible.length,
+                  itemBuilder: (_, i) {
+                    final device = visible[i];
+                    return DeviceCard(
+                      device: device,
+                      onCancel: device.status == DeviceStatus.inUse
+                          ? () async {
+                              try {
+                                // En este punto solo tenemos el device.id,
+                                // no el reservation_id.
+                                // El cancel real necesita el reservation_id.
+                                // Mostramos mensaje informativo.
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Para cancelar, usá la sección "Mis Reservas".',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
                               }
                             }
-                          }
-                        : null,
-                  );
-                },
-              ),
-      ),
-    ]);
+                          : null,
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
   }
 }

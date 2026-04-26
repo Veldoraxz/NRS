@@ -2,7 +2,6 @@
 
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
-import 'package:nrs_backend/models/reservation.dart';
 import 'package:nrs_backend/repositories/reservation_repository.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -11,12 +10,9 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   try {
-    final reservations = await ReservationRepository().getAll();
+    final reservations = await ReservationRepository().getAllWithFlowData();
 
-    return Response.json(
-      body: reservations.map((Reservation r) => r.toJson()).toList(),
-    );
-
+    return Response.json(body: reservations);
   } catch (e) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,

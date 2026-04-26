@@ -18,6 +18,7 @@ Handler middleware(Handler handler) {
         statusCode: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
+          // ignore: lines_longer_than_80_chars
           'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
           'Access-Control-Max-Age': '86400',
@@ -28,6 +29,7 @@ Handler middleware(Handler handler) {
     final response = await handler(context);
     final headers = Map<String, String>.from(response.headers);
     headers['Access-Control-Allow-Origin'] = '*';
+    // ignore: lines_longer_than_80_chars
     headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
     headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
 

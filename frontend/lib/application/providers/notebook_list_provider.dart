@@ -21,7 +21,9 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
         queryParameters: {'limit': 100, 'offset': 0},
       );
       final list = res.data['data'] as List<dynamic>;
-      return list.map((j) => Device.fromJson(j as Map<String, dynamic>)).toList();
+      return list
+          .map((j) => Device.fromJson(j as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       // No es admin o no tiene auth → usar endpoint público
       if (e.response?.statusCode == 401 ||
@@ -43,6 +45,71 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
     ref.invalidateSelf();
   }
 
+  // ─── Admin: crear dispositivo ────────────────────────────────────────────────
+  // POST /devices — { number, type, status?, status_notes? }
+  Future<Device> createDevice({
+    required String number,
+    required String type,
+    String? statusNotes,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        '/devices',
+        data: {
+          'number': number,
+          'type': type,
+          if (statusNotes case final notes?) 'status_notes': notes,
+        },
+      );
+      ref.invalidateSelf();
+      return Device.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al crear dispositivo',
+      );
+    }
+  }
+
+  // ─── Admin: editar dispositivo ───────────────────────────────────────────────
+  // PUT /devices/{id} — { number?, status_notes? }
+  Future<Device> updateDevice({
+    required String id,
+    String? number,
+    String? statusNotes,
+  }) async {
+    try {
+      final res = await ApiClient.instance.put(
+        '/devices/$id',
+        data: {
+          if (number case final n?) 'number': n,
+          if (statusNotes case final notes?) 'status_notes': notes,
+        },
+      );
+      ref.invalidateSelf();
+      return Device.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al actualizar dispositivo',
+      );
+    }
+  }
+
+  // ─── Admin: eliminar dispositivo ─────────────────────────────────────────────
+  // DELETE /devices/{id}
+  Future<void> deleteDevice(String id) async {
+    try {
+      await ApiClient.instance.delete('/devices/$id');
+      ref.invalidateSelf();
+    } on DioException catch (e) {
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al eliminar dispositivo',
+      );
+    }
+  }
+
   // ─── Admin: cambiar estado ───────────────────────────────────────────────────
   // PUT /devices/{id}/status — válido: available | in_use | out_of_service
   Future<void> updateDeviceStatus(String id, DeviceStatus status) async {
@@ -51,9 +118,14 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
     if (apiStatus == 'maintenance') {
       // Actualización optimista local
       final current = state.value ?? [];
-      state = AsyncValue.data(current
-          .map((d) => d.id == id ? d.copyWith(status: DeviceStatus.maintenance) : d)
-          .toList());
+      state = AsyncValue.data(
+        current
+            .map(
+              (d) =>
+                  d.id == id ? d.copyWith(status: DeviceStatus.maintenance) : d,
+            )
+            .toList(),
+      );
       return;
     }
     try {
@@ -63,7 +135,10 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
       );
       ref.invalidateSelf();
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error al actualizar estado');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al actualizar estado',
+      );
     }
   }
 
@@ -82,7 +157,7 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
     String deviceId,
     DateTime date,
     String startTime, // 'HH:MM'
-    String endTime,   // 'HH:MM'
+    String endTime, // 'HH:MM'
   ) async {
     try {
       await ApiClient.instance.post(
@@ -96,7 +171,10 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
       );
       ref.invalidateSelf();
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error al reservar');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al reservar',
+      );
     }
   }
 
@@ -122,7 +200,10 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
       );
       ref.invalidateSelf();
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error al reservar');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al reservar',
+      );
     }
   }
 
@@ -132,14 +213,18 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
       await ApiClient.instance.post('/reservations/$reservationId/cancel');
       ref.invalidateSelf();
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error al cancelar');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al cancelar',
+      );
     }
   }
 
   // ─── GET /reservations/all (admin/teacher) ────────────────────────────────────
   Future<List<Map<String, dynamic>>> getAllReservations() async {
     final res = await ApiClient.instance.get('/reservations/all');
-    return (res.data as List<dynamic>).cast<Map<String, dynamic>>();
+    final list = res.data as List<dynamic>;
+    return list.map((item) => Map<String, dynamic>.from(item as Map)).toList();
   }
 
   // ─── Slots bloqueados para un dispositivo en un día ──────────────────────────
@@ -147,13 +232,14 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
   Future<Set<String>> getBlockedSlots(String deviceId, DateTime day) async {
     try {
       final all = await getAllReservations();
-      final dayStr =
-          '${day.year}-${_p(day.month)}-${_p(day.day)}';
+      final dayStr = '${day.year}-${_p(day.month)}-${_p(day.day)}';
       return all
-          .where((r) =>
-              r['device_id'] == deviceId &&
-              r['date'] == dayStr &&
-              (r['status'] == 'pending' || r['status'] == 'confirmed'))
+          .where(
+            (r) =>
+                r['device_id'] == deviceId &&
+                r['date'] == dayStr &&
+                (r['status'] == 'pending' || r['status'] == 'confirmed'),
+          )
           .map((r) => r['start_time'] as String)
           .toSet();
     } catch (_) {
@@ -175,14 +261,17 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
         '/checkouts',
         data: {
           'reservation_id': reservationId,
-          if (deviceNotes != null) 'device_notes': deviceNotes,
+          if (deviceNotes case final notes?) 'device_notes': notes,
           'confirm': confirm,
         },
       );
       ref.invalidateSelf();
       return res.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error en checkout');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error en checkout',
+      );
     }
   }
 
@@ -199,7 +288,7 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
         '/returns',
         data: {
           'checkout_id': checkoutId,
-          if (deviceNotes != null) 'device_notes': deviceNotes,
+          if (deviceNotes case final notes?) 'device_notes': notes,
           'has_damage': hasDamage,
           if (hasDamage && damageDescription != null)
             'damage_description': damageDescription,
@@ -207,7 +296,10 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
       );
       ref.invalidateSelf();
     } on DioException catch (e) {
-      throw Exception(((e.response?.data as Map?)?['error'] as String?) ?? 'Error al registrar devolución');
+      throw Exception(
+        ((e.response?.data as Map?)?['error'] as String?) ??
+            'Error al registrar devolución',
+      );
     }
   }
 
@@ -216,4 +308,5 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
 
 final notebookListProvider =
     AsyncNotifierProvider<NotebookListNotifier, List<Device>>(
-        () => NotebookListNotifier());
+      () => NotebookListNotifier(),
+    );
