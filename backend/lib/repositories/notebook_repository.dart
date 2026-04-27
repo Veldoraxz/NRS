@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:nrs_backend/config/env.dart';
 
-/// Base URL de la API local de notebooks.
-const baseUrl = 'http://localhost:8080';
+/// Base URL da API local de notebooks.
+String get baseUrl => apiBaseUrl;
 
 /// Obtiene la lista de notebooks desde la API local.
 Future<List<dynamic>> getNotebooks() async {

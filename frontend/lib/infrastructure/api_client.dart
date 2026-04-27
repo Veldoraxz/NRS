@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 
 class ApiClient {
   static final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8080',
+    baseUrl: 'https://nrs.up.railway.app',
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 8),
     headers: {'Content-Type': 'application/json'},
