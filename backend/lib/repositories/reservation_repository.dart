@@ -143,11 +143,19 @@ class ReservationRepository {
           d.type as device_type,
           r.date, r.start_time, r.end_time, r.status, r.created_at,
           s.full_name as student_name,
+          CASE
+            WHEN r.booker_type = 'student' THEN COALESCE(s.specialty, 'ciclo_basico')
+            ELSE NULL
+          END as student_specialty,
           t.full_name as teacher_name,
           c.id as checkout_id,
           c.checked_out_at,
           rt.id as return_id,
-          rt.returned_at
+          rt.returned_at,
+          s.email as student_email,
+          s.dni as student_dni,
+          t.email as teacher_email,
+          t.dni as teacher_dni
         FROM reservations r
         LEFT JOIN students s ON r.student_id = s.id
         LEFT JOIN teachers t ON r.teacher_id = t.id
@@ -161,8 +169,8 @@ class ReservationRepository {
     return result.map((row) {
       final date = row[7] as DateTime;
       final createdAt = row[11] as DateTime;
-      final checkedOutAt = row[15] as DateTime?;
-      final returnedAt = row[17] as DateTime?;
+      final checkedOutAt = row[16] as DateTime?;
+      final returnedAt = row[18] as DateTime?;
 
       return <String, dynamic>{
         'id': row[0] as String,
@@ -178,11 +186,16 @@ class ReservationRepository {
         'status': row[10] as String,
         'created_at': createdAt.toIso8601String(),
         'student_name': row[12] as String?,
-        'teacher_name': row[13] as String?,
-        'checkout_id': row[14] as String?,
+        'student_specialty': row[13] as String?,
+        'teacher_name': row[14] as String?,
+        'checkout_id': row[15] as String?,
         'checked_out_at': checkedOutAt?.toIso8601String(),
-        'return_id': row[16] as String?,
+        'return_id': row[17] as String?,
         'returned_at': returnedAt?.toIso8601String(),
+        'student_email': row[19] as String?,
+        'student_dni': row[20] as String?,
+        'teacher_email': row[21] as String?,
+        'teacher_dni': row[22] as String?,
       };
     }).toList();
   }
@@ -431,23 +444,28 @@ class ReservationRepository {
     return result.isNotEmpty;
   }
 
+  /// Expira reservas que no fueron retiradas a tiempo.
+  /// - Reservas de fechas pasadas → expiradas.
+  /// - Reservas de hoy cuyo `start_time + 10 min` ya pasó y no tienen
+  ///   checkout → expiradas (la ventana de tolerancia es de 10 minutos
+  ///   desde el inicio del turno).
   Future<int> expireOverdue() async {
     final conn = await getConnection();
-    final now = DateTime.now();
-    final currentDate = now.toIso8601String().split('T')[0];
-    final currentTime =
-        '${now.hour.toString().padLeft(2, '0')}:'
-        '${now.minute.toString().padLeft(2, '0')}:00';
 
     final result = await conn.execute(
       r'''
         UPDATE reservations
         SET status = 'expired'
         WHERE status IN ('pending', 'confirmed')
-          AND (date < $1 OR (date = $1 AND end_time <= $2))
+          AND (
+            date < CURRENT_DATE
+            OR (
+              date = CURRENT_DATE
+              AND (start_time + interval '10 minutes') <= CURRENT_TIME
+            )
+          )
           AND id NOT IN (SELECT reservation_id FROM checkouts)
       ''',
-      parameters: [currentDate, currentTime],
     );
     return result.affectedRows;
   }

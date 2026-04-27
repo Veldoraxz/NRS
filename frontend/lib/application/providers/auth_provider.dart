@@ -1,7 +1,6 @@
 // lib/application/providers/auth_provider.dart
-// POST /auth/login → { token, role, email }
-// Luego POST /students/login (o /teachers/login) para obtener perfil completo.
-// El token se inyecta en ApiClient.setAuthToken() para todos los calls futuros.
+// POST /auth/login → { token, role, email, user:{...} }
+// El backend autodetecta el rol probando student → teacher → admin.
 
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,78 +11,80 @@ class AuthNotifier extends Notifier<AsyncValue<User?>> {
   @override
   AsyncValue<User?> build() => const AsyncValue.data(null);
 
-  Future<void> login(String email, String password, UserRole role) async {
+  Future<void> login(String email, String password) async {
     state = const AsyncValue.loading();
     try {
-      // 1. POST /auth/login — requiere { email, password, role }
-      final loginRes = await ApiClient.instance.post(
+      final res = await ApiClient.instance.post(
         '/auth/login',
-        data: {'email': email, 'password': password, 'role': role.name},
+        data: {'email': email, 'password': password},
       );
-      final token = loginRes.data['token'] as String;
+
+      final data  = res.data as Map<String, dynamic>;
+      final token = data['token'] as String;
       ApiClient.setAuthToken(token);
 
-      // 2. Obtener perfil completo según rol
-      User user;
-      if (role == UserRole.student) {
-        user = await _fetchStudentProfile(email, password);
-      } else if (role == UserRole.teacher) {
-        user = await _fetchTeacherProfile(email, password);
-      } else {
-        // Admin: no tiene endpoint de perfil, construir con datos del login
-        user = User(
-          id: loginRes.data['id'] as String? ?? '',
-          email: email,
-          dni: password,
-          fullName: 'Administrador',
-          role: UserRole.admin,
-          isActive: true,
-        );
-      }
+      final roleStr  = (data['role'] as String?) ?? 'student';
+      final role     = _parseRole(roleStr);
+      final userData = data['user'] as Map<String, dynamic>? ?? {};
 
-      state = AsyncValue.data(user);
+      state = AsyncValue.data(_userFromPayload(
+        role: role,
+        dni:  password,
+        userData: userData,
+        emailFallback: data['email']?.toString() ?? email,
+      ));
     } on DioException catch (e) {
       ApiClient.clearAuthToken();
-      final msg = e.response?.data?['error'] as String? ?? 'Error de conexión';
+      final status = e.response?.statusCode;
+      final String msg;
+      if (status == 401 || status == 403) {
+        msg = 'Datos incorrectos';
+      } else if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.response == null) {
+        msg = 'No se pudo conectar con el servidor';
+      } else {
+        msg = (e.response?.data is Map)
+            ? ((e.response!.data['error'] as String?) ?? 'Datos incorrectos')
+            : 'Datos incorrectos';
+      }
       state = AsyncValue.error(msg, StackTrace.current);
-      rethrow;
+      throw Exception(msg);
     }
   }
 
-  Future<User> _fetchStudentProfile(String email, String password) async {
-    // POST /students/login → objeto Student completo con is_active, year, specialty
-    final res = await ApiClient.instance.post(
-      '/students/login',
-      data: {'email': email, 'dni': password},
-    );
-    final d = res.data as Map<String, dynamic>;
-    return User(
-      id: d['id'] as String,
-      email: d['email'] as String,
-      dni: password,
-      fullName: d['full_name'] as String,
-      role: UserRole.student,
-      isActive: d['is_active'] as bool? ?? false,
-      year: d['year'] as int?,
-      division: d['division'] as int?,
-      specialty: d['specialty'] as String?,
-    );
+  UserRole _parseRole(String s) {
+    switch (s) {
+      case 'admin':
+        return UserRole.admin;
+      case 'teacher':
+        return UserRole.teacher;
+      default:
+        return UserRole.student;
+    }
   }
 
-  Future<User> _fetchTeacherProfile(String email, String password) async {
-    // POST /teachers/login
-    final res = await ApiClient.instance.post(
-      '/teachers/login',
-      data: {'email': email, 'dni': password},
-    );
-    final d = res.data as Map<String, dynamic>;
+  User _userFromPayload({
+    required UserRole role,
+    required String dni,
+    required Map<String, dynamic> userData,
+    required String emailFallback,
+  }) {
+    final id        = userData['id']?.toString() ?? '';
+    final email     = userData['email']?.toString() ?? emailFallback;
+    final fullName  = userData['full_name']?.toString()
+        ?? (role == UserRole.admin ? 'Administrador' : email.split('@').first);
+
     return User(
-      id: d['id'] as String,
-      email: d['email'] as String,
-      dni: password,
-      fullName: d['full_name'] as String,
-      role: UserRole.teacher,
-      isActive: true,
+      id:        id,
+      email:     email,
+      dni:       dni,
+      fullName:  fullName,
+      role:      role,
+      isActive:  userData['is_active'] as bool? ?? true,
+      year:      userData['year'] as int?,
+      division:  userData['division'] as int?,
+      specialty: userData['specialty'] as String?,
     );
   }
 

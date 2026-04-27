@@ -13,11 +13,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   final user = context.read<AuthUser>();
 
-  // Solo teachers pueden generar tokens
-  if (user.role != 'teacher') {
+  // Solo teachers (sobre sus reservas) y admins pueden generar/visualizar tokens.
+  if (user.role != 'teacher' && user.role != 'admin') {
     return Response.json(
       statusCode: HttpStatus.forbidden,
-      body: {'error': 'Solo un profesor puede generar tokens'},
+      body: {'error': 'Solo un profesor o admin puede generar tokens'},
     );
   }
 
@@ -31,8 +31,16 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    // Solo puede generar token para sus propias reservas
-    if (reservation.teacherId != user.userId) {
+    // El token solo aplica a reservas de profesor.
+    if (reservation.bookerType != 'teacher') {
+      return Response.json(
+        statusCode: HttpStatus.badRequest,
+        body: {'error': 'Solo las reservas de profesor tienen token'},
+      );
+    }
+
+    // Si es teacher, solo puede generar token para sus propias reservas.
+    if (user.role == 'teacher' && reservation.teacherId != user.userId) {
       return Response.json(
         statusCode: HttpStatus.forbidden,
         // ignore: lines_longer_than_80_chars

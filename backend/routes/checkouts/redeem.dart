@@ -15,7 +15,7 @@ Future<Response> onRequest(RequestContext context) async {
 
   final user        = context.read<AuthUser>();
   final body        = await context.request.json() as Map<String, dynamic>;
-  final tokenValue  = body['token']?.toString().trim();
+  final tokenValue  = body['token']?.toString().trim().toUpperCase();
   final deviceNotes = body['device_notes']?.toString().trim();
 
   if (tokenValue == null || tokenValue.isEmpty) {

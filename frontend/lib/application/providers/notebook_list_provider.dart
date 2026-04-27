@@ -111,25 +111,11 @@ class NotebookListNotifier extends AsyncNotifier<List<Device>> {
   }
 
   // ─── Admin: cambiar estado ───────────────────────────────────────────────────
-  // PUT /devices/{id}/status — válido: available | in_use | out_of_service
+  // PATCH /devices/{id}/status — válido: available | in_use | out_of_service | maintenance
   Future<void> updateDeviceStatus(String id, DeviceStatus status) async {
     final apiStatus = Device.statusToApi(status);
-    // El backend no acepta 'maintenance' — solo lo usamos en UI local
-    if (apiStatus == 'maintenance') {
-      // Actualización optimista local
-      final current = state.value ?? [];
-      state = AsyncValue.data(
-        current
-            .map(
-              (d) =>
-                  d.id == id ? d.copyWith(status: DeviceStatus.maintenance) : d,
-            )
-            .toList(),
-      );
-      return;
-    }
     try {
-      await ApiClient.instance.put(
+      await ApiClient.instance.patch(
         '/devices/$id/status',
         data: {'status': apiStatus},
       );

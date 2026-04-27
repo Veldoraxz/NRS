@@ -6,11 +6,19 @@ import 'package:nrs_backend/models/teacher_token.dart';
 import 'package:ulid/ulid.dart';
 
 class TeacherTokenRepository {
-  /// Genera un token aleatorio de 64 caracteres hex.
+  /// Alfabeto sin caracteres ambiguos ('0', 'O', '1', 'I' permanecen porque
+  /// el sistema permite ingresar el código con un teclado real, pero podríamos
+  /// ajustarlo si fuera necesario).
+  static const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+  /// Token corto: 6 caracteres alfanuméricos en mayúscula.
   String _generateToken() {
     final random = Random.secure();
-    final bytes  = List<int>.generate(32, (_) => random.nextInt(256));
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final buf = StringBuffer();
+    for (var i = 0; i < 6; i++) {
+      buf.write(_alphabet[random.nextInt(_alphabet.length)]);
+    }
+    return buf.toString();
   }
 
   Future<TeacherToken?> findByToken(String token) async {
@@ -46,9 +54,8 @@ Future<TeacherToken> create({
   required DateTime reservationDate,
   required String startTime,
 }) async {
-  final conn  = await getConnection();
-  final id    = Ulid().toString();
-  final token = _generateToken();
+  final conn = await getConnection();
+  final id   = Ulid().toString();
 
   // startTime puede venir como "08:00" o "08:00:00" — tomamos solo HH y MM
   final parts  = startTime.split(':');
@@ -64,16 +71,29 @@ Future<TeacherToken> create({
   );
   final expiresAt = startDt.add(const Duration(minutes: 10));
 
-  await conn.execute(
-    r'''
-      INSERT INTO teacher_tokens
-        (id, reservation_id, token, used, expires_at)
-      VALUES ($1, $2, $3, false, $4)
-    ''',
-    parameters: [id, reservationId, token, expiresAt],
-  );
-
-  return (await findByToken(token))!;
+  // 36^6 ≈ 2.18B combinaciones: choque improbable pero posible. Reintentamos.
+  for (var attempt = 0; attempt < 8; attempt++) {
+    final token = _generateToken();
+    try {
+      await conn.execute(
+        r'''
+          INSERT INTO teacher_tokens
+            (id, reservation_id, token, used, expires_at)
+          VALUES ($1, $2, $3, false, $4)
+        ''',
+        parameters: [id, reservationId, token, expiresAt],
+      );
+      return (await findByToken(token))!;
+    } catch (e) {
+      // Choque de UNIQUE → reintentar con otro token.
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('unique') || msg.contains('duplicate')) {
+        continue;
+      }
+      rethrow;
+    }
+  }
+  throw Exception('No se pudo generar un token único, intentá de nuevo.');
 }
 
   /// Marca el token como usado.

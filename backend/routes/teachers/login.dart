@@ -2,7 +2,6 @@
 
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
-import 'package:nrs_backend/auth/jwt_service.dart';
 import 'package:nrs_backend/repositories/teacher_repository.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -22,27 +21,16 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   try {
-    final userData = await TeacherRepository().loginForAuth(
-      email: email,
-      dni:   dni,
-    );
+    final teacher = await TeacherRepository().login(email: email, dni: dni);
 
-    if (userData == null) {
+    if (teacher == null) {
       return Response.json(
         statusCode: HttpStatus.unauthorized,
         body: {'error': 'Email o DNI incorrectos'},
       );
     }
 
-    // Sin chequeo de is_active — la cuenta la crea el admin,
-    // siempre está activa
-    final token = JwtService().generateToken(
-      userId: userData['id'] as String,
-      email:  userData['email'] as String,
-      role:   'teacher',
-    );
-
-    return Response.json(body: {'token': token});
+    return Response.json(body: teacher.toJson());
   } catch (e) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,

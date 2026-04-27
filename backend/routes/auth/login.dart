@@ -17,66 +17,89 @@ Future<Response> onRequest(RequestContext context) async {
   final password = body['password']?.toString().trim();
   final role     = body['role']?.toString().trim();
 
-  if (email == null    || email.isEmpty    ||
-      password == null || password.isEmpty ||
-      role == null     || role.isEmpty) {
+  if (email == null || email.isEmpty || password == null || password.isEmpty) {
     return Response.json(
       statusCode: HttpStatus.badRequest,
-      body: {'error': 'email, password y role son requeridos'},
+      body: {'error': 'email y password son requeridos'},
     );
   }
 
   try {
-    Map<String, dynamic>? user;
+    // Auto-detect: si no viene role, probamos student -> teacher -> admin.
+    final candidates = (role == null || role.isEmpty)
+        ? <String>['student', 'teacher', 'admin']
+        : <String>[role];
 
-    switch (role) {
-      case 'admin':
-        user = await AdminRepository().loginByEmail(
-          email:    email,
-          password: password,
-        );
-      case 'teacher':
-        user = await TeacherRepository().loginForAuth(
-          email: email,
-          dni:   password,
-        );
-      case 'student':
-        user = await StudentRepository().loginForAuth(
-          email: email,
-          dni:   password,
-        );
-      default:
-        return Response.json(
-          statusCode: HttpStatus.badRequest,
-          body: {'error': 'role debe ser admin, teacher o student'},
-        );
+    for (final r in candidates) {
+      final result = await _tryLogin(role: r, email: email, password: password);
+      if (result != null) return result;
     }
-
-    if (user == null) {
-      return Response.json(
-        statusCode: HttpStatus.unauthorized,
-        body: {'error': 'Credenciales incorrectas'},
-      );
-    }
-
-    final token = JwtService.generate(
-      userId: user['id'] as String,
-      email:  user['email'] as String,
-      role:   user['role'] as String,
-    );
 
     return Response.json(
-      body: {
-        'token': token,
-        'role':  user['role'],
-        'email': user['email'],
-      },
+      statusCode: HttpStatus.unauthorized,
+      body: {'error': 'Credenciales incorrectas'},
     );
-
   } catch (e) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,
       body: {'error': 'Error interno: $e'},
     );
   }
+}
+
+Future<Response?> _tryLogin({
+  required String role,
+  required String email,
+  required String password,
+}) async {
+  Map<String, dynamic>? user;
+
+  switch (role) {
+    case 'admin':
+      user = await AdminRepository().loginByEmail(
+        email:    email,
+        password: password,
+      );
+    case 'teacher':
+      final teacher = await TeacherRepository().login(
+        email: email,
+        dni:   password,
+      );
+      if (teacher != null) {
+        user = {
+          ...teacher.toJson(),
+          'role': 'teacher',
+        };
+      }
+    case 'student':
+      final student = await StudentRepository().login(
+        email: email,
+        dni:   password,
+      );
+      if (student != null) {
+        user = {
+          ...student.toJson(),
+          'role': 'student',
+        };
+      }
+    default:
+      return null;
+  }
+
+  if (user == null) return null;
+
+  final token = JwtService.generate(
+    userId: user['id'] as String,
+    email:  user['email'] as String,
+    role:   user['role'] as String,
+  );
+
+  return Response.json(
+    body: {
+      'token': token,
+      'role':  user['role'],
+      'email': user['email'],
+      'user':  user,
+    },
+  );
 }

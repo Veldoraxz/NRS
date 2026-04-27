@@ -57,7 +57,7 @@ CREATE TABLE devices (
     type            VARCHAR(20)  NOT NULL
                         CHECK (type IN ('notebook', 'television')),
     status          VARCHAR(20)  NOT NULL DEFAULT 'available'
-                        CHECK (status IN ('available', 'in_use', 'out_of_service')),
+                        CHECK (status IN ('available', 'in_use', 'out_of_service', 'maintenance')),
     status_notes    TEXT,
     created_at      TIMESTAMP    NOT NULL DEFAULT NOW()
 );

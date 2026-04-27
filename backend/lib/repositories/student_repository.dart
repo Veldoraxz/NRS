@@ -111,6 +111,50 @@ class StudentRepository {
     return Student.fromRow(result.first);
   }
 
+  Future<bool> existsByEmailExcludingId(String email, String excludeId) async {
+    final conn = await getConnection();
+    final result = await conn.execute(
+      r'SELECT id FROM students WHERE email = $1 AND id <> $2',
+      parameters: [email, excludeId],
+    );
+    return result.isNotEmpty;
+  }
+
+  Future<bool> existsByDniExcludingId(String dni, String excludeId) async {
+    final conn = await getConnection();
+    final result = await conn.execute(
+      r'SELECT id FROM students WHERE dni = $1 AND id <> $2',
+      parameters: [dni, excludeId],
+    );
+    return result.isNotEmpty;
+  }
+
+  Future<Student?> update({
+    required String id,
+    required String fullName,
+    required String email,
+    required String dni,
+    required int year,
+    required int division,
+    String? specialty,
+  }) async {
+    final conn = await getConnection();
+    await conn.execute(
+      r'''
+        UPDATE students
+        SET full_name = $2,
+            email     = $3,
+            dni       = $4,
+            year      = $5,
+            division  = $6,
+            specialty = $7
+        WHERE id = $1
+      ''',
+      parameters: [id, fullName, email, dni, year, division, specialty],
+    );
+    return findById(id);
+  }
+
   Future<void> activate(String id) async {
     final conn = await getConnection();
     await conn.execute(
@@ -133,5 +177,38 @@ class StudentRepository {
       r'UPDATE students SET is_active = true WHERE id = $1',
       parameters: [id],
     );
+  }
+
+  Future<bool> hasCheckoutHistory(String id) async {
+    final conn = await getConnection();
+    final result = await conn.execute(
+      r'''
+        SELECT 1
+        FROM checkouts c
+        JOIN reservations r ON r.id = c.reservation_id
+        WHERE r.student_id = $1
+        LIMIT 1
+      ''',
+      parameters: [id],
+    );
+    return result.isNotEmpty;
+  }
+
+  /// Elimina al alumno y sus reservas (las cancelaciones por checkout
+  /// previo se manejan a nivel de ruta — si fallan por FK, abortamos).
+  Future<void> delete(String id) async {
+    final conn = await getConnection();
+    await conn.runTx((tx) async {
+      // Borra reservas del alumno (cascada de teacher_tokens).
+      await tx.execute(
+        r'DELETE FROM reservations WHERE student_id = $1',
+        parameters: [id],
+      );
+      // Borra al alumno.
+      await tx.execute(
+        r'DELETE FROM students WHERE id = $1',
+        parameters: [id],
+      );
+    });
   }
 }

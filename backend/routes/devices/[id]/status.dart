@@ -34,7 +34,12 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    final validStatuses = ['available', 'in_use', 'out_of_service'];
+    final validStatuses = [
+      'available',
+      'in_use',
+      'out_of_service',
+      'maintenance',
+    ];
     if (!validStatuses.contains(newStatus)) {
       return Response.json(
         statusCode: HttpStatus.badRequest,

@@ -6,8 +6,15 @@ import 'package:nrs_backend/config/device_type.dart';
 import 'package:nrs_backend/middleware/admin_auth.dart';
 import 'package:nrs_backend/repositories/device_repository.dart';
 
+/// GET es público (cualquier usuario puede listar dispositivos para la home).
+/// POST requiere admin.
 Handler middleware(Handler handler) {
-  return adminAuthMiddleware(handler);
+  return (context) async {
+    if (context.request.method == HttpMethod.get) {
+      return handler(context);
+    }
+    return adminAuthMiddleware(handler)(context);
+  };
 }
 
 Future<Response> onRequest(RequestContext context) async {
