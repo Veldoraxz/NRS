@@ -13,7 +13,7 @@ COPY . .
 
 # Install dart_frog_cli and build
 RUN dart pub global activate dart_frog_cli
-RUN dart pub global run dart_frog build
+RUN dart_frog build
 
 # Compile the server
 RUN dart compile exe build/bin/server.dart -o build/bin/server
